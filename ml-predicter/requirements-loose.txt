@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+sqlalchemy
+asyncpg
+redis
+pandas
+numpy
+scikit-learn
+statsmodels
+scipy
+requests
+python-dotenv
