@@ -32,6 +32,9 @@ import IncomeForecastScreen from '../screens/main/IncomeForecastScreen';
 import HealthScreen from '../screens/main/HealthScreen';
 import RelationshipsScreen from '../screens/main/RelationshipsScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
+import EditProfileScreen from '../screens/settings/EditProfileScreen';
+import ChangePasswordScreen from '../screens/settings/ChangePasswordScreen';
+import NotificationsScreen from '../screens/settings/NotificationsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -93,6 +96,21 @@ function PredictionsStack() {
   );
 }
 
+function ProfileStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen name="ProfileHome" component={ProfileScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+      <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+    </Stack.Navigator>
+  );
+}
+
 function BottomTabNavigator() {
   return (
     <Tab.Navigator
@@ -144,8 +162,8 @@ function BottomTabNavigator() {
       />
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
-        options={{ title: 'Profile' }}
+        component={ProfileStack}
+        options={{ title: 'Profile', headerShown: false }}
       />
     </Tab.Navigator>
   );
