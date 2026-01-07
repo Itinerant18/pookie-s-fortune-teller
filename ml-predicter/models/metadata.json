@@ -1,0 +1,49 @@
+{
+  "training_date": "2026-01-07T15:33:35.557020",
+  "models": {
+    "income_arima": {
+      "filepath": "models\\income_arima.pkl",
+      "timestamp": "2026-01-07T15:33:16.403037",
+      "size_bytes": 960024
+    },
+    "income_sarima": {
+      "filepath": "models\\income_sarima.pkl",
+      "timestamp": "2026-01-07T15:33:19.678514",
+      "size_bytes": 65684820
+    },
+    "income_rf": {
+      "filepath": "models\\income_rf.pkl",
+      "timestamp": "2026-01-07T15:33:24.053900",
+      "size_bytes": 1212865
+    },
+    "income_scaler": {
+      "filepath": "models\\income_scaler.pkl",
+      "timestamp": "2026-01-07T15:33:24.056476",
+      "size_bytes": 639
+    },
+    "health_stress_classifier": {
+      "filepath": "models\\health_stress_classifier.pkl",
+      "timestamp": "2026-01-07T15:33:34.625219",
+      "size_bytes": 1132137
+    },
+    "health_stress_scaler": {
+      "filepath": "models\\health_stress_scaler.pkl",
+      "timestamp": "2026-01-07T15:33:34.632221",
+      "size_bytes": 727
+    },
+    "health_risk_predictor": {
+      "filepath": "models\\health_risk_predictor.pkl",
+      "timestamp": "2026-01-07T15:33:35.520921",
+      "size_bytes": 2325265
+    },
+    "health_risk_scaler": {
+      "filepath": "models\\health_risk_scaler.pkl",
+      "timestamp": "2026-01-07T15:33:35.531534",
+      "size_bytes": 727
+    }
+  },
+  "config": {
+    "model_dir": "models",
+    "total_models": 8
+  }
+}

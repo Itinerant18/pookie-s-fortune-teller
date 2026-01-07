@@ -1,26 +1,62 @@
 """
-Time-series forecasting engine for income and financial predictions
-Uses ARIMA, SARIMA, and Prophet models
+ml-predicter/src/engines/forecast_engine.py
+
+Updated time-series forecasting engine that loads pre-trained models
 """
 
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Optional
 import logging
+import joblib
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 class IncomeForecastEngine:
     """
-    Forecast income using time-series models
-    Supports multiple forecasting algorithms
+    Forecast income using pre-trained time-series models
+    Supports ARIMA, SARIMA, and ensemble predictions
     """
     
-    def __init__(self):
-        self.model = None
-        self.scaler = None
+    def __init__(self, model_dir: str = "./models"):
+        self.model_dir = Path(model_dir)
+        self.models = {}
+        self.scalers = {}
+        self._load_models()
         logger.info("Income Forecast Engine initialized")
+    
+    def _load_models(self):
+        """Load pre-trained models from disk"""
+        try:
+            # Load ARIMA model
+            arima_path = self.model_dir / "income_arima.pkl"
+            if arima_path.exists():
+                self.models['arima'] = joblib.load(arima_path)
+                logger.info("✓ ARIMA model loaded")
+            
+            # Load SARIMA model
+            sarima_path = self.model_dir / "income_sarima.pkl"
+            if sarima_path.exists():
+                self.models['sarima'] = joblib.load(sarima_path)
+                logger.info("✓ SARIMA model loaded")
+            
+            # Load Random Forest model
+            rf_path = self.model_dir / "income_rf.pkl"
+            scaler_path = self.model_dir / "income_scaler.pkl"
+            
+            if rf_path.exists() and scaler_path.exists():
+                self.models['rf'] = joblib.load(rf_path)
+                self.scalers['rf'] = joblib.load(scaler_path)
+                logger.info("✓ Random Forest model loaded")
+            
+            if not self.models:
+                logger.warning("No pre-trained models found. Using on-the-fly training.")
+        
+        except Exception as e:
+            logger.error(f"Error loading models: {e}")
+            logger.warning("Will fall back to on-the-fly training")
     
     def prepare_data(self, timeseries: List[Dict[str, Any]]) -> pd.DataFrame:
         """
@@ -44,10 +80,88 @@ class IncomeForecastEngine:
         
         return df
     
+    def forecast_with_pretrained(
+        self, 
+        data: pd.DataFrame, 
+        model_name: str, 
+        periods: int = 6
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Generate forecast using pre-trained model
+        
+        Args:
+            data: Historical time series data
+            model_name: Name of model to use ('arima', 'sarima', 'rf')
+            periods: Number of periods to forecast
+        
+        Returns:
+            Forecast results dict or None if model not available
+        """
+        if model_name not in self.models:
+            logger.warning(f"Pre-trained {model_name} model not found")
+            return None
+        
+        try:
+            model = self.models[model_name]
+            
+            if model_name in ['arima', 'sarima']:
+                # Use statsmodels forecast method
+                forecast_result = model.get_forecast(steps=periods)
+                forecast_df = forecast_result.summary_frame()
+                
+                return {
+                    "model": model_name.upper(),
+                    "forecast": forecast_df["mean"].tolist(),
+                    "ci_lower": forecast_df["mean_ci_lower"].tolist(),
+                    "ci_upper": forecast_df["mean_ci_upper"].tolist(),
+                    "using_pretrained": True
+                }
+            
+            elif model_name == 'rf':
+                # Random Forest requires feature engineering
+                scaler = self.scalers['rf']
+                
+                # Generate future dates
+                last_date = data.index[-1]
+                future_dates = pd.date_range(
+                    start=last_date + pd.Timedelta(days=1),
+                    periods=periods,
+                    freq='D'
+                )
+                
+                # Create features
+                features = []
+                for date in future_dates:
+                    features.append([
+                        date.dayofweek,
+                        date.month,
+                        date.quarter
+                    ])
+                
+                X_future = np.array(features)
+                X_future_scaled = scaler.transform(X_future)
+                
+                # Predict
+                predictions = model.predict(X_future_scaled)
+                
+                # Estimate confidence intervals (RF doesn't provide them natively)
+                # Use prediction std as proxy
+                std = np.std(predictions) * 0.5
+                
+                return {
+                    "model": "Random Forest",
+                    "forecast": predictions.tolist(),
+                    "ci_lower": (predictions - 1.96 * std).tolist(),
+                    "ci_upper": (predictions + 1.96 * std).tolist(),
+                    "using_pretrained": True
+                }
+        
+        except Exception as e:
+            logger.error(f"Error forecasting with {model_name}: {e}")
+            return None
+    
     def detect_seasonality(self, data: pd.DataFrame) -> Dict[str, Any]:
-        """
-        Detect seasonality pattern in time series
-        """
+        """Detect seasonality pattern in time series"""
         from scipy import signal
         
         values = data["value"].values
@@ -72,37 +186,23 @@ class IncomeForecastEngine:
         }
     
     def forecast_arima(self, data: pd.DataFrame, periods: int = 6) -> Dict[str, Any]:
-        """
-        Forecast using ARIMA model
-        Auto-selects best order parameters
-        """
+        """Forecast using ARIMA model (pre-trained or on-the-fly)"""
+        
+        # Try pre-trained model first
+        result = self.forecast_with_pretrained(data, 'arima', periods)
+        if result:
+            return result
+        
+        # Fall back to on-the-fly training
+        logger.info("Training ARIMA on-the-fly...")
+        
         try:
             from statsmodels.tsa.arima.model import ARIMA
-            from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
             
             values = data["value"].values
             
-            # Auto ARIMA parameter selection
-            # Try multiple (p,d,q) combinations
-            best_aic = float("inf")
-            best_order = (1, 1, 1)
-            
-            for p in range(3):
-                for d in range(2):
-                    for q in range(3):
-                        try:
-                            model = ARIMA(values, order=(p, d, q))
-                            fitted = model.fit()
-                            if fitted.aic < best_aic:
-                                best_aic = fitted.aic
-                                best_order = (p, d, q)
-                        except:
-                            pass
-            
-            logger.info(f"Best ARIMA order: {best_order}")
-            
-            # Fit final model
-            model = ARIMA(values, order=best_order)
+            # Simple ARIMA (1,1,1) for speed
+            model = ARIMA(values, order=(1, 1, 1))
             fitted_model = model.fit()
             
             # Forecast
@@ -111,12 +211,11 @@ class IncomeForecastEngine:
             
             return {
                 "model": "ARIMA",
-                "order": best_order,
+                "order": (1, 1, 1),
                 "forecast": forecast_df["mean"].tolist(),
                 "ci_lower": forecast_df["mean_ci_lower"].tolist(),
                 "ci_upper": forecast_df["mean_ci_upper"].tolist(),
-                "aic": float(fitted_model.aic),
-                "rmse": float(np.sqrt(fitted_model.mse))
+                "using_pretrained": False
             }
         
         except Exception as e:
@@ -124,24 +223,23 @@ class IncomeForecastEngine:
             return None
     
     def forecast_sarima(self, data: pd.DataFrame, periods: int = 6) -> Dict[str, Any]:
-        """
-        Forecast using SARIMA model
-        For seasonal data
-        """
+        """Forecast using SARIMA model"""
+        
+        # Try pre-trained model first
+        result = self.forecast_with_pretrained(data, 'sarima', periods)
+        if result:
+            return result
+        
+        # Fall back to on-the-fly training
+        logger.info("Training SARIMA on-the-fly...")
+        
         try:
             from statsmodels.tsa.statespace.sarimax import SARIMAX
             
             values = data["value"].values
-            
-            # Detect seasonality
             seasonality = self.detect_seasonality(data)
             season_period = seasonality["season_period"]
             
-            if not seasonality["has_seasonality"]:
-                logger.warning("No strong seasonality detected, using ARIMA")
-                return self.forecast_arima(data, periods)
-            
-            # SARIMA with seasonal component
             model = SARIMAX(
                 values,
                 order=(1, 1, 1),
@@ -158,58 +256,14 @@ class IncomeForecastEngine:
             
             return {
                 "model": "SARIMA",
-                "order": (1, 1, 1),
-                "seasonal_order": (1, 1, 0, season_period),
                 "forecast": forecast_df["mean"].tolist(),
                 "ci_lower": forecast_df["mean_ci_lower"].tolist(),
                 "ci_upper": forecast_df["mean_ci_upper"].tolist(),
-                "aic": float(fitted_model.aic),
-                "rmse": float(np.sqrt(fitted_model.mse))
+                "using_pretrained": False
             }
         
         except Exception as e:
             logger.error(f"SARIMA forecasting failed: {e}")
-            return None
-    
-    def forecast_exponential_smoothing(self, data: pd.DataFrame, periods: int = 6) -> Dict[str, Any]:
-        """
-        Forecast using Exponential Smoothing
-        Good for stable trends
-        """
-        try:
-            from statsmodels.tsa.holtwinters import ExponentialSmoothing
-            
-            values = data["value"].values
-            
-            # Detect seasonality
-            seasonality = self.detect_seasonality(data)
-            season_period = seasonality["season_period"]
-            
-            model_type = "add" if seasonality["has_seasonality"] else "mul"
-            
-            model = ExponentialSmoothing(
-                values,
-                seasonal_periods=season_period if seasonality["has_seasonality"] else None,
-                trend="add",
-                seasonal=model_type if seasonality["has_seasonality"] else None,
-                initialization_method="estimated"
-            )
-            
-            fitted_model = model.fit(optimized=True)
-            
-            # Forecast
-            forecast = fitted_model.forecast(steps=periods)
-            
-            return {
-                "model": "Exponential Smoothing",
-                "trend": "additive",
-                "seasonal": model_type,
-                "forecast": forecast.tolist(),
-                "rmse": float(np.sqrt(np.mean((values - fitted_model.fittedvalues)**2)))
-            }
-        
-        except Exception as e:
-            logger.error(f"Exponential Smoothing failed: {e}")
             return None
     
     def ensemble_forecast(self, data: pd.DataFrame, periods: int = 6) -> Dict[str, Any]:
@@ -228,9 +282,10 @@ class IncomeForecastEngine:
         if sarima_result:
             forecasts["sarima"] = sarima_result
         
-        exp_result = self.forecast_exponential_smoothing(data, periods)
-        if exp_result:
-            forecasts["exp_smoothing"] = exp_result
+        # Try RF if available
+        rf_result = self.forecast_with_pretrained(data, 'rf', periods)
+        if rf_result:
+            forecasts["rf"] = rf_result
         
         if not forecasts:
             raise ValueError("All forecasting methods failed")
@@ -246,6 +301,9 @@ class IncomeForecastEngine:
         ci_lower = np.percentile(all_forecasts, 2.5, axis=0)
         ci_upper = np.percentile(all_forecasts, 97.5, axis=0)
         
+        # Check if any pre-trained models were used
+        using_pretrained = any(f.get("using_pretrained", False) for f in forecasts.values())
+        
         return {
             "model": "Ensemble",
             "sub_models": list(forecasts.keys()),
@@ -253,7 +311,8 @@ class IncomeForecastEngine:
             "ci_lower": ci_lower.tolist(),
             "ci_upper": ci_upper.tolist(),
             "trend": self._calculate_trend(ensemble_forecast),
-            "volatility": float(np.std(ensemble_forecast))
+            "volatility": float(np.std(ensemble_forecast)),
+            "using_pretrained": using_pretrained
         }
     
     def _calculate_trend(self, forecast: np.ndarray) -> str:
@@ -271,25 +330,27 @@ class IncomeForecastEngine:
             return "stable"
     
     def generate_recommendations(self, forecast: Dict[str, Any]) -> List[str]:
-        """
-        Generate recommendations based on forecast
-        """
+        """Generate recommendations based on forecast"""
         recommendations = []
         
         values = forecast["forecast"]
         trend = forecast.get("trend", "stable")
         
         if trend == "upward":
-            recommendations.append("Income trend is positive - consider investing surplus")
-            recommendations.append("Plan for future expenses - upward trend suggests stability")
+            recommendations.append("📈 Income trend is positive - consider investing surplus")
+            recommendations.append("💰 Plan for future expenses - upward trend suggests stability")
         
         elif trend == "downward":
-            recommendations.append("Income trend is declining - build emergency fund")
-            recommendations.append("Review expenses and cut non-essential spending")
+            recommendations.append("📉 Income trend is declining - build emergency fund")
+            recommendations.append("💸 Review expenses and cut non-essential spending")
         
         # Volatility-based recommendations
         volatility = forecast.get("volatility", 0)
         if volatility > np.mean(values) * 0.3:
-            recommendations.append("High income volatility - maintain larger emergency fund")
+            recommendations.append("⚠️ High income volatility - maintain larger emergency fund")
+        
+        # Model confidence
+        if forecast.get("using_pretrained", False):
+            recommendations.append("✓ Predictions based on trained models (higher confidence)")
         
         return recommendations
