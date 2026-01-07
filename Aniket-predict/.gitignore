@@ -1,0 +1,20 @@
+# Node
+node_modules/
+.env
+
+# Mobile
+mobile/.expo/
+mobile/node_modules/
+mobile/*.log
+
+# Web
+web/node_modules/
+web/dist/
+web/.env
+web/*.log
+
+# Misc
+.DS_Store
+coverage/
+dist/
+build/
