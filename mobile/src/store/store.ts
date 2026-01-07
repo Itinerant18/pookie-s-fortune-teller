@@ -1,13 +1,13 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './authSlice';
 import predictionsReducer from './predictionsSlice';
-// import uiReducer from './uiSlice'; // Will add later if needed
+import uiReducer from './uiSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     predictions: predictionsReducer,
-    // ui: uiReducer,
+    ui: uiReducer,
   },
 });
 

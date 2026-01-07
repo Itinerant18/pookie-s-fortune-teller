@@ -48,29 +48,29 @@ const ProfileScreen = ({ navigation }: any) => {
 
   const menuItems = [
     {
-      title: 'Account Settings',
-      icon: 'settings-outline',
-      onPress: () => {}, // TODO: Navigate to Account Settings
+      title: 'Edit Profile',
+      icon: 'person-outline',
+      onPress: () => navigation.navigate('EditProfile'),
+    },
+    {
+      title: 'Change Password',
+      icon: 'lock-closed-outline',
+      onPress: () => navigation.navigate('ChangePassword'),
     },
     {
       title: 'Notifications',
       icon: 'notifications-outline',
-      onPress: () => {}, // TODO: Navigate to Notifications
+      onPress: () => navigation.navigate('Notifications'),
     },
     {
       title: 'Privacy & Security',
       icon: 'shield-checkmark-outline',
-      onPress: () => {}, // TODO: Navigate to Privacy
+      onPress: () => {},
     },
     {
       title: 'Help & Support',
       icon: 'help-circle-outline',
-      onPress: () => {}, // TODO: Navigate to Help
-    },
-    {
-      title: 'About',
-      icon: 'information-circle-outline',
-      onPress: () => {}, // TODO: Navigate to About
+      onPress: () => {},
     },
   ];
 
