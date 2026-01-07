@@ -1,7 +1,9 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    
     # Server
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
@@ -39,7 +41,6 @@ class Settings(BaseSettings):
     ENABLE_MONITORING: bool = True
     BATCH_PREDICTION: bool = True
 
-    class Config:
-        env_file = ".env"
+    BATCH_PREDICTION: bool = True
 
 settings = Settings()

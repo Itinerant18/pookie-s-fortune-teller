@@ -51,6 +51,17 @@ class IncomeForecastEngine:
                 self.scalers['rf'] = joblib.load(scaler_path)
                 logger.info("✓ Random Forest model loaded")
             
+            # Load Demographic Classifier
+            demo_model_path = self.model_dir / "income_demographic_classifier.pkl"
+            demo_scaler_path = self.model_dir / "income_demographic_scaler.pkl"
+            demo_features_path = self.model_dir / "income_demographic_features.pkl"
+            
+            if demo_model_path.exists() and demo_scaler_path.exists() and demo_features_path.exists():
+                self.models['demographic'] = joblib.load(demo_model_path)
+                self.scalers['demographic'] = joblib.load(demo_scaler_path)
+                self.features_metadata = joblib.load(demo_features_path)
+                logger.info("✓ Demographic Classifier loaded")
+            
             if not self.models:
                 logger.warning("No pre-trained models found. Using on-the-fly training.")
         
@@ -329,7 +340,71 @@ class IncomeForecastEngine:
         else:
             return "stable"
     
-    def generate_recommendations(self, forecast: Dict[str, Any]) -> List[str]:
+    def predict_income_demographic(self, user_profile: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Predict income bracket based on user demographics
+        
+        Args:
+            user_profile: {
+                'age': int, 'workclass': str, 'education': str, 
+                'occupation': str, 'hours_per_week': int, etc.
+            }
+        """
+        if 'demographic' not in self.models:
+            return None
+            
+        try:
+            model = self.models['demographic']
+            scaler = self.scalers['demographic']
+            feature_names = self.features_metadata
+            
+            # Prepare input DataFrame with dummy variables
+            # 1. Start with numerical features
+            input_data = {
+                'age': [user_profile.get('age', 30)],
+                'capital_gain': [user_profile.get('capital_gain', 0)],
+                'capital_loss': [user_profile.get('capital_loss', 0)],
+                'hours_per_week': [user_profile.get('hours_per_week', 40)]
+            }
+            
+            # 2. Add categorical features (one-hot encoded)
+            # We need to match the feature names from training
+            for feat in feature_names:
+                if feat in input_data:
+                    continue
+                
+                # Check if this feature matches the user's category
+                # Format is usually 'category_value'
+                matched = False
+                for cat_key, cat_val in user_profile.items():
+                    if f"{cat_key}_{cat_val}" == feat:
+                        input_data[feat] = [1]
+                        matched = True
+                        break
+                
+                if not matched:
+                    input_data[feat] = [0]
+            
+            # Convert to DF and ensure order matches
+            input_df = pd.DataFrame(input_data)
+            input_df = input_df[feature_names]
+            
+            # Scale and predict
+            X_scaled = scaler.transform(input_df)
+            prediction = model.predict(X_scaled)[0]
+            probability = model.predict_proba(X_scaled)[0][1]
+            
+            return {
+                "income_bracket": ">50K" if prediction == 1 else "<=50K",
+                "high_income_probability": float(probability),
+                "insight": "High growth potential" if probability > 0.7 else "Stable income profile"
+            }
+            
+        except Exception as e:
+            logger.error(f"Demographic prediction failed: {e}")
+            return None
+
+    def generate_recommendations(self, forecast: Dict[str, Any], demographic_avg: Optional[Dict] = None) -> List[str]:
         """Generate recommendations based on forecast"""
         recommendations = []
         
@@ -338,7 +413,14 @@ class IncomeForecastEngine:
         
         if trend == "upward":
             recommendations.append("📈 Income trend is positive - consider investing surplus")
-            recommendations.append("💰 Plan for future expenses - upward trend suggests stability")
+        
+        # Add demographic-based insights
+        if demographic_avg:
+            prob = demographic_avg.get("high_income_probability", 0)
+            if prob > 0.8:
+                recommendations.append("✨ Your profile matches high-earning benchmarks - maximize career growth")
+            elif prob < 0.3:
+                recommendations.append("🎓 Consider skill upgrades to move into a higher income bracket")
         
         elif trend == "downward":
             recommendations.append("📉 Income trend is declining - build emergency fund")
