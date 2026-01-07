@@ -1,0 +1,53 @@
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-decoration: none;
+}
+
+.logo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-icon svg {
+  filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.4));
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.logo-title {
+  font-family: var(--font-display);
+  font-weight: var(--font-bold);
+  background: var(--gradient-cosmic);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.logo-subtitle {
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+}
+
+/* Sizes */
+.logo-sm .logo-icon svg { width: 28px; height: 28px; }
+.logo-sm .logo-title { font-size: var(--text-base); }
+.logo-sm .logo-subtitle { font-size: var(--text-xs); }
+
+.logo-md .logo-icon svg { width: 36px; height: 36px; }
+.logo-md .logo-title { font-size: var(--text-lg); }
+.logo-md .logo-subtitle { font-size: var(--text-sm); }
+
+.logo-lg .logo-icon svg { width: 48px; height: 48px; }
+.logo-lg .logo-title { font-size: var(--text-xl); }
+.logo-lg .logo-subtitle { font-size: var(--text-base); }
+
+.logo-xl .logo-icon svg { width: 64px; height: 64px; }
+.logo-xl .logo-title { font-size: var(--text-2xl); }
+.logo-xl .logo-subtitle { font-size: var(--text-lg); }

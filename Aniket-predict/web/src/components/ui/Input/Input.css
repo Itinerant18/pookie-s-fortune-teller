@@ -1,0 +1,23 @@
+.input-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.input-container.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.required-mark {
+  color: var(--error);
+  margin-left: var(--space-1);
+}
+
+.input-container.focused .form-label {
+  color: var(--primary-400);
+}
+
+.input-container.has-error .form-label {
+  color: var(--error);
+}

@@ -1,0 +1,26 @@
+{
+  "name": "hybrid-prediction-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Hybrid Prediction App",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "ml:win": "cd ../ml-predicter && $env:PYTHONPATH=(Get-Location).Path; python -m uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload",
+    "dev:full": "concurrently --kill-others \"cd ../ml-predicter && python -m uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload\" \"npm run dev\"",
+    "start:full": "concurrently --kill-others \"cd ../ml-predicter && python -m uvicorn src.main:app --host 0.0.0.0 --port 8000\" \"npm run start\""
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "axios": "^1.13.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.1"
+  }
+}
