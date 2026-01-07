@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+// API service for predictions - works with mock data or real backend
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 const ML_ENGINE_URL = import.meta.env.VITE_ML_ENGINE_URL || 'http://localhost:8000';
@@ -53,19 +53,20 @@ export interface BirthChart {
   doshas?: Record<string, any>[];
 }
 
-// Helper to get auth headers
-async function getAuthHeaders(): Promise<HeadersInit> {
-  const { data: { session } } = await supabase.auth.getSession();
+// Helper to get auth headers from localStorage
+function getAuthHeaders(): HeadersInit {
+  const stored = localStorage.getItem('pookie_auth_user');
+  const user = stored ? JSON.parse(stored) : null;
   return {
     'Content-Type': 'application/json',
-    ...(session?.access_token && { 'Authorization': `Bearer ${session.access_token}` }),
+    ...(user?.id && { 'X-User-Id': user.id }),
   };
 }
 
 // Backend API calls (Node.js backend)
 export const predictionService = {
   async generate(category: PredictionCategory, timeframe: Timeframe): Promise<Prediction> {
-    const headers = await getAuthHeaders();
+    const headers = getAuthHeaders();
     const response = await fetch(`${API_URL}/predictions/generate`, {
       method: 'POST',
       headers,
@@ -81,7 +82,7 @@ export const predictionService = {
   },
 
   async getAll(): Promise<Prediction[]> {
-    const headers = await getAuthHeaders();
+    const headers = getAuthHeaders();
     const response = await fetch(`${API_URL}/predictions`, {
       headers,
     });
@@ -95,7 +96,7 @@ export const predictionService = {
   },
 
   async getById(id: string): Promise<Prediction> {
-    const headers = await getAuthHeaders();
+    const headers = getAuthHeaders();
     const response = await fetch(`${API_URL}/predictions/${id}`, {
       headers,
     });

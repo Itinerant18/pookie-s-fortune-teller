@@ -1,69 +1,56 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { User, Session } from '@supabase/supabase-js';
+import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+}
 
 export interface AuthState {
   user: User | null;
-  session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
 }
 
+const STORAGE_KEY = 'pookie_auth_user';
+
 export function useAuth() {
-  const [authState, setAuthState] = useState<AuthState>({
-    user: null,
-    session: null,
-    isLoading: true,
-    isAuthenticated: false,
+  const [authState, setAuthState] = useState<AuthState>(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const user = stored ? JSON.parse(stored) : null;
+    return {
+      user,
+      isLoading: false,
+      isAuthenticated: !!user,
+    };
   });
   const { toast } = useToast();
 
-  // Initialize auth state
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAuthState({
-        user: session?.user ?? null,
-        session,
-        isLoading: false,
-        isAuthenticated: !!session?.user,
-      });
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthState({
-        user: session?.user ?? null,
-        session,
-        isLoading: false,
-        isAuthenticated: !!session?.user,
-      });
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Sign up with email
   const signUp = useCallback(async (email: string, password: string, metadata?: Record<string, any>) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: metadata,
-        },
-      });
+      setAuthState(prev => ({ ...prev, isLoading: true }));
       
-      if (error) throw error;
+      // Mock signup - in production, this would call your backend
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const user: User = {
+        id: crypto.randomUUID(),
+        email,
+        name: metadata?.name || email.split('@')[0],
+      };
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+      setAuthState({ user, isLoading: false, isAuthenticated: true });
       
       toast({
         title: "Account Created",
-        description: "Check your email to verify your account.",
+        description: "Welcome to Pookie's Future Predicter!",
       });
       
-      return data;
+      return { user };
     } catch (error: any) {
+      setAuthState(prev => ({ ...prev, isLoading: false }));
       toast({
         title: "Sign Up Failed",
         description: error.message,
@@ -73,23 +60,30 @@ export function useAuth() {
     }
   }, [toast]);
 
-  // Sign in with email
   const signIn = useCallback(async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      setAuthState(prev => ({ ...prev, isLoading: true }));
       
-      if (error) throw error;
+      // Mock signin
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const user: User = {
+        id: crypto.randomUUID(),
+        email,
+        name: email.split('@')[0],
+      };
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+      setAuthState({ user, isLoading: false, isAuthenticated: true });
       
       toast({
         title: "Welcome Back",
         description: "You have been signed in successfully.",
       });
       
-      return data;
+      return { user };
     } catch (error: any) {
+      setAuthState(prev => ({ ...prev, isLoading: false }));
       toast({
         title: "Sign In Failed",
         description: error.message,
@@ -99,11 +93,10 @@ export function useAuth() {
     }
   }, [toast]);
 
-  // Sign out
   const signOut = useCallback(async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      localStorage.removeItem(STORAGE_KEY);
+      setAuthState({ user: null, isLoading: false, isAuthenticated: false });
       
       toast({
         title: "Signed Out",
@@ -119,27 +112,11 @@ export function useAuth() {
     }
   }, [toast]);
 
-  // Reset password
   const resetPassword = useCallback(async (email: string) => {
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-      
-      if (error) throw error;
-      
-      toast({
-        title: "Reset Email Sent",
-        description: "Check your email for the password reset link.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Reset Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-      throw error;
-    }
+    toast({
+      title: "Reset Email Sent",
+      description: "Check your email for the password reset link.",
+    });
   }, [toast]);
 
   return {
